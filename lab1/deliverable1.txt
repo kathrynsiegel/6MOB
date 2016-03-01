@@ -1,0 +1,3 @@
+Cellular distance: 4.61591229948
+WiFi distance: 1.20339619073
+GPS distance: 0.361392447701
