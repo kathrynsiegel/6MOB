@@ -64,7 +64,6 @@
     }
     else {	
         NSArray *rs = [[SensorModel instance] sensorReadings];
-
         if (indexPath.row == 0) {
             //top cell contains some buttons to show a plot
             UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"plotCell"];
