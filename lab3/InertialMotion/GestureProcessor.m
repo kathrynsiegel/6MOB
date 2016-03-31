@@ -58,13 +58,49 @@ static NSString *const labels[N_LABELS+1] = {@"A", @"B", @"C", @"D", @"E", @"F",
     double size, clippedSize;
     Sample2D rescaledSamples[count];
     double minX = +INFINITY, maxX = -INFINITY, minY = +INFINITY, maxY = -INFINITY;
-    // Compute size, clippedSize
+    // Compute size
+    for (int i = 0; i < count; i++) {
+        const Sample2D sample = samples[i];
+        minX = MIN(minX, sample.x);
+        maxX = MAX(maxX, sample.x);
+        minY = MIN(minY, sample.y);
+        maxY = MAX(maxY, sample.y);
+    }
+    size = MAX(maxX - minX, maxY - minY);
+    // Compute clippedSize
+    clippedSize = MAX(size, minSize);
     // Rescale points to lie in [0,1] x [0,1]
-    
+    for (int i = 0; i < count; i++) {
+        const Sample2D sample = samples[i];
+        double currX = (sample.x - minX) / clippedSize;
+        double currY = (sample.y - minY) / clippedSize;
+        const Sample2D scaledSample = {currX, currY, sample.t};
+        rescaledSamples[i] = scaledSample;
+    }
+    NSLog(@"%@",[NSString stringWithFormat:@"Size: %f, Clipped size: %f", size, clippedSize]);
+
     // -- TASK 1B --
     double features[N_FEATURES] = {};
+    features[N_FEATURES-1] = 1.0;
     // Classify each point according to which zone of a 3x3 Tic-Tac-Toe board it would fall in
     // Compute the time spent in each zone and the distance traveled horizontally and vertically
+    double totalTime = rescaledSamples[count-1].t - rescaledSamples[0].t;
+    for (int i = 0; i < count-1; i++) {
+        const Sample2D sampleA = rescaledSamples[i];
+        const Sample2D sampleB = rescaledSamples[i+1];
+        double midX = (sampleA.x + sampleB.x) / 2;
+        double midY = (sampleA.y + sampleB.y) / 2;
+        int zone = [self zoneFromXCoordinate: midX yCoordinate: midY];
+//        NSLog(@"%f",midX);
+//        NSLog(@"%f",midY);
+//        NSLog(@"%d",zone);
+        if (zone < 9) {
+            features[zone*3] += (sampleB.t - sampleA.t) / totalTime;
+            features[zone*3+1] += (sampleB.x - sampleA.x);
+            features[zone*3+2] += (sampleB.y - sampleA.y);
+        }
+    }
+    
     
     // -- TASK 1C --
 #if TRAINING
@@ -88,12 +124,26 @@ static NSString *const labels[N_LABELS+1] = {@"A", @"B", @"C", @"D", @"E", @"F",
     int best_label = N_LABELS;
     double best_score = -INFINITY;
     // Dot product with gesture templates in weights[][]
+    for (int i = 0; i < N_LABELS; i++) {
+        int score = 0;
+        for (int j = 0; j < N_FEATURES; j++) {
+            score += features[j] * weights[i][j];
+        }
+        if (score > best_score) {
+            best_label = i;
+            best_score = score;
+        }
+    }
     
 #if !TRAINING
     // Report strongest match
     NSLog(@"Matched '%@' (score %+.5f)", labels[best_label], best_score);
 #endif
     [self.delegate gestureProcessor:self didRecognizeGesture:labels[best_label]];
+}
+
+- (int)zoneFromXCoordinate:(double)x yCoordinate:(double)y {
+    return floor(y * 3) * 3 + floor(x * 3);
 }
 
 - (void)processGesture3DWithSamples:(const Sample3D *)samples
